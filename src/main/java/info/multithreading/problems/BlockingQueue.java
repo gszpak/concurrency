@@ -2,60 +2,55 @@ package info.multithreading.problems;
 
 class BlockingQueue<T> {
 
-    T[] array;
-    Object lock = new Object();
-    int size = 0;
-    int capacity;
-    int head = 0;
-    int tail = 0;
+    private final int capacity;
+    private final T[] items;
+    private int writeIndex;
+    private int readIndex;
+    private int elemsInQueue = 0;
 
+    @SuppressWarnings("unchecked")
     public BlockingQueue(int capacity) {
-        // The casting results in a warning
-        array = (T[]) new Object[capacity];
         this.capacity = capacity;
-    }
-
-    public T dequeue() throws InterruptedException {
-
-        T item = null;
-        synchronized (lock) {
-
-            while (size == 0) {
-                lock.wait();
-            }
-
-            if (head == capacity) {
-                head = 0;
-            }
-
-            item = array[head];
-            array[head] = null;
-            head++;
-            size--;
-
-            lock.notify();
-        }
-
-        return item;
+        this.items = (T[]) new Object[capacity];
+        this.writeIndex = 0;
+        this.readIndex = 0;
+        this.elemsInQueue = 0;
     }
 
     public void enqueue(T item) throws InterruptedException {
-
-        synchronized (lock) {
-
-            while (size == capacity) {
-                lock.wait();
+        assert elemsInQueue <= capacity && elemsInQueue >= 0;
+        synchronized (items) {
+            while (isFull()) {
+                items.wait();
             }
-
-            if (tail == capacity) {
-                tail = 0;
-            }
-
-            array[tail] = item;
-            size++;
-            tail++;
-            lock.notify();
+            items[writeIndex] = item;
+            writeIndex = (writeIndex + 1) % capacity;
+            elemsInQueue++;
+            items.notify();
         }
     }
-}
 
+    public T dequeue() throws InterruptedException {
+        assert elemsInQueue <= capacity && elemsInQueue >= 0;
+        T item;
+        synchronized (items) {
+            while (isEmpty()) {
+                items.wait();
+            }
+            item = items[readIndex];
+            items[readIndex] = null;
+            readIndex = (readIndex + 1) % capacity;
+            elemsInQueue--;
+            items.notify();
+        }
+        return item;
+    }
+
+    private boolean isFull() {
+        return elemsInQueue == capacity;
+    }
+
+    private boolean isEmpty() {
+        return elemsInQueue == 0;
+    }
+}
