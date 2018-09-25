@@ -1,31 +1,75 @@
 package info.multithreading.problems;
 
+import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class TokenBucketFilter {
 
-    long possibleTokens = 0;
-    private int MAX_TOKENS;
-    private long lastRequestTime = System.currentTimeMillis();
+    private long numOfTokens = 0;
+    private ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1);
+    private final Lock lock = new ReentrantLock();
+    private final Condition notFull = lock.newCondition();
+    private final Condition notEmpty = lock.newCondition();
+    private long lastBucketUpdate = -1;
+    private int maxTokens;
+    private ScheduledFuture<?> future;
 
     public TokenBucketFilter(int maxTokens) {
-        MAX_TOKENS = maxTokens;
+        this.maxTokens = maxTokens;
+        future = executor.scheduleAtFixedRate(() -> {
+            try {
+                addToken();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+        lastBucketUpdate = System.currentTimeMillis();
     }
 
-    synchronized void getToken() throws InterruptedException {
-
-        possibleTokens += (System.currentTimeMillis() - lastRequestTime) / 1000;
-
-        if (possibleTokens > MAX_TOKENS) {
-            possibleTokens = MAX_TOKENS;
+    public void getToken() throws InterruptedException {
+        lock.lock();
+        try {
+            while (numOfTokens == 0) {
+                notEmpty.await();
+            }
+            numOfTokens--;
+            System.out.println(String.format("After get: %d/%d", numOfTokens, maxTokens));
+            System.out.flush();
+            notFull.signal();
+        } finally {
+            lock.unlock();
         }
+    }
 
-        if (possibleTokens == 0) {
-            Thread.sleep(1000);
-        } else {
-            possibleTokens--;
+    private void addToken() throws InterruptedException {
+        lock.lock();
+        try {
+            while (numOfTokens == maxTokens) {
+                notFull.await();
+            }
+            long currentTime = System.currentTimeMillis();
+            long prevTokens = numOfTokens;
+            numOfTokens = getNextNumOfTokens(currentTime);
+            if (prevTokens != numOfTokens) {
+                lastBucketUpdate = currentTime;
+            }
+            System.out.println(String.format("After add: %d/%d", numOfTokens, maxTokens));
+            System.out.flush();
+            notEmpty.signalAll();
+        } finally {
+            lock.unlock();
         }
-        lastRequestTime = System.currentTimeMillis();
+    }
 
-        System.out.println(
-                "Granting " + Thread.currentThread().getName() + " token at " + System.currentTimeMillis() / 1000);
+    private long getNextNumOfTokens(long currentTimestamp) {
+        long secondsSinceLastUpdate = TimeUnit.MILLISECONDS.toSeconds(
+                currentTimestamp - lastBucketUpdate);
+        return Math.min(maxTokens, numOfTokens + secondsSinceLastUpdate);
+    }
+
+    public void stop() {
+        future.cancel(false);
     }
 }

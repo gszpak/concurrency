@@ -36,6 +36,8 @@ public class TokenBucketFilterProblem {
         for (Thread t : allThreads) {
             t.join();
         }
+
+        tokenBucketFilter.stop();
     }
 
     @Test
@@ -71,5 +73,7 @@ public class TokenBucketFilterProblem {
         for (Thread t : allThreads) {
             t.join();
         }
+
+        tokenBucketFilter.stop();
     }
 }
