@@ -35,7 +35,10 @@ public class TokenBucketFilter {
                 notEmpty.await();
             }
             numOfTokens--;
-            System.out.println(String.format("After get: %d/%d", numOfTokens, maxTokens));
+            System.out.println(
+                    String.format(
+                            "Granting token to %s, status: %d/%d",
+                            Thread.currentThread().getName(), numOfTokens, maxTokens));
             System.out.flush();
             notFull.signal();
         } finally {
@@ -55,7 +58,8 @@ public class TokenBucketFilter {
             if (prevTokens != numOfTokens) {
                 lastBucketUpdate = currentTime;
             }
-            System.out.println(String.format("After add: %d/%d", numOfTokens, maxTokens));
+            System.out.println(
+                    String.format("Adding token, status: %d/%d", numOfTokens, maxTokens));
             System.out.flush();
             notEmpty.signalAll();
         } finally {
