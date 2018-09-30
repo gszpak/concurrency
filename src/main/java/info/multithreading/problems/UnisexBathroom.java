@@ -35,6 +35,13 @@ public class UnisexBathroom {
 
     private void useBathroom(
             String name, Gender requesting, Gender other) throws InterruptedException {
+        enterBathroom(name, requesting, other);
+        useBathroom();
+        leaveBathroom(name, requesting, other);
+    }
+
+    private void enterBathroom(
+            String name, Gender requesting, Gender other) throws InterruptedException {
         lock.lock();
         try {
             if (other.numInBathroom > 0 ||
@@ -57,9 +64,10 @@ public class UnisexBathroom {
         } finally {
             lock.unlock();
         }
+    }
 
-        useBathroom();
-
+    private void leaveBathroom(
+            String name, Gender requesting, Gender other) throws InterruptedException {
         lock.lock();
         try {
             requesting.numInBathroom--;
