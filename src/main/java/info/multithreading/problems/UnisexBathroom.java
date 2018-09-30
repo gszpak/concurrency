@@ -1,70 +1,89 @@
 package info.multithreading.problems;
 
-import java.util.concurrent.Semaphore;
+import java.util.Random;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class UnisexBathroom {
 
-    static String WOMEN = "women";
-    static String MEN = "men";
-    static String NONE = "none";
+    private static final int MAX_NUM_OF_PEOPLE_IN_BATHROOM = 3;
+    private static final Random RANDOM = new Random();
 
-    String inUseBy = NONE;
-    int empsInBathroom = 0;
-    ReentrantLock lock = new ReentrantLock();
-    Condition cond = lock.newCondition();
-    Semaphore maxEmps = new Semaphore(3);
+    private static class Gender {
+        private int numInBathroom = 0;
+        private int numWaiting = 0;
+        private boolean canEnterBathroom = false;
+        private Condition useBathroom;
 
-    void femaleUseBathroom(String name) throws InterruptedException {
-
-        lock.lock();
-        while (inUseBy.equals(MEN)) {
-            cond.await();
+        private Gender(Condition useBathroom) {
+            this.useBathroom = useBathroom;
         }
-        maxEmps.acquire();
-        empsInBathroom++;
-        inUseBy = WOMEN;
-        lock.unlock();
-
-        useBathroom(name);
-        maxEmps.release();
-
-        lock.lock();
-        empsInBathroom--;
-
-        if (empsInBathroom == 0)
-            inUseBy = NONE;
-        cond.signalAll();
-        lock.unlock();
     }
+
+    private Lock lock = new ReentrantLock();
+    private Gender men = new Gender(lock.newCondition());
+    private Gender women = new Gender(lock.newCondition());
 
     void maleUseBathroom(String name) throws InterruptedException {
-
-        lock.lock();
-        while (inUseBy.equals(WOMEN)) {
-            cond.await();
-        }
-        maxEmps.acquire();
-        empsInBathroom++;
-        inUseBy = MEN;
-        lock.unlock();
-
-        useBathroom(name);
-        maxEmps.release();
-
-        lock.lock();
-        empsInBathroom--;
-
-        if (empsInBathroom == 0)
-            inUseBy = NONE;
-        cond.signalAll();
-        lock.unlock();
+        useBathroom(name, men, women);
     }
 
-    void useBathroom(String name) throws InterruptedException {
-        System.out.println(name + " using bathroom. Current employees in bathroom = " + empsInBathroom);
-        Thread.sleep(10000);
-        System.out.println(name + " done using bathroom");
+    void femaleUseBathroom(String name) throws InterruptedException {
+        useBathroom(name, women, men);
+    }
+
+    private void useBathroom(
+            String name, Gender requesting, Gender other) throws InterruptedException {
+        lock.lock();
+        try {
+            if (other.numInBathroom > 0 ||
+                    requesting.numInBathroom == MAX_NUM_OF_PEOPLE_IN_BATHROOM ||
+                    other.numWaiting > 0) {
+                requesting.numWaiting++;
+                requesting.canEnterBathroom = false;
+                while (!requesting.canEnterBathroom) {
+                    requesting.useBathroom.await();
+                }
+                requesting.numWaiting--;
+            }
+            requesting.numInBathroom++;
+            if (requesting.numInBathroom == MAX_NUM_OF_PEOPLE_IN_BATHROOM) {
+                requesting.canEnterBathroom = false;
+            }
+            System.out.println(name + " is using bathroom. Current employees in bathroom = " +
+                    (requesting.numInBathroom + other.numInBathroom));
+            System.out.flush();
+        } finally {
+            lock.unlock();
+        }
+
+        useBathroom();
+
+        lock.lock();
+        try {
+            requesting.numInBathroom--;
+            System.out.println(name + " is leaving bathroom. Current employees in bathroom = " +
+                    (requesting.numInBathroom + other.numInBathroom));
+            System.out.flush();
+            if (other.numWaiting > 0) {
+                if (requesting.numInBathroom == 0) {
+                    other.canEnterBathroom = true;
+                    int numToEnter = Math.min(other.numWaiting, MAX_NUM_OF_PEOPLE_IN_BATHROOM);
+                    for (int i = 0; i < numToEnter; ++i) {
+                        other.useBathroom.signal();
+                    }
+                }
+            } else {
+                requesting.canEnterBathroom = true;
+                requesting.useBathroom.signal();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    void useBathroom() throws InterruptedException {
+        Thread.sleep((1 + RANDOM.nextInt(3)) * 1000);
     }
 }

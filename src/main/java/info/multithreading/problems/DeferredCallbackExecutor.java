@@ -3,13 +3,14 @@ package info.multithreading.problems;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class DeferredCallbackExecutor {
 
     PriorityQueue<CallBack> callBacks = new PriorityQueue<>(
             (o1, o2) -> (int) (o1.executeAt - o2.executeAt));
-    private final ReentrantLock lock = new ReentrantLock();
+    private final Lock lock = new ReentrantLock();
     private final Condition nextCallBackReady = lock.newCondition();
 
     // Run by the Executor Thread
