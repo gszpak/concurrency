@@ -2,27 +2,27 @@ package info.multithreading.problems.superman;
 
 public class Superman {
 
-    private static volatile Superman superman;
+    private static volatile Superman INSTANCE;
+    private static final Object LOCK = new Object();
 
     private Superman() {
-
+        System.out.println("Constructing Superman");
+        System.out.flush();
     }
 
     public static Superman getInstance() {
-
-        if (superman == null) {
-            synchronized (SupermanSlightlyBetter.class) {
-
-                if (superman == null) {
-                    superman = new Superman();
+        if (INSTANCE == null) {
+            synchronized (LOCK) {
+                if (INSTANCE == null) {
+                    INSTANCE = new Superman();
                 }
             }
         }
-
-        return superman;
+        return INSTANCE;
     }
 
     public void fly() {
         System.out.println("I am Superman & I can fly !");
+        System.out.flush();
     }
 }

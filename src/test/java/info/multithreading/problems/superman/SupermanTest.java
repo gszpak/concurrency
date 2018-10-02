@@ -11,8 +11,24 @@ public class SupermanTest {
     }
 
     @Test
-    public void test() {
-        Superman superman = Superman.getInstance();
-        superman.fly();
+    public void test() throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            Superman s = Superman.getInstance();
+            s.fly();
+        });
+        Thread t2 = new Thread(() -> {
+            Superman s = Superman.getInstance();
+            s.fly();
+        });
+        Thread t3 = new Thread(() -> {
+            Superman s = Superman.getInstance();
+            s.fly();
+        });
+        t1.start();
+        t2.start();
+        t3.start();
+        t1.join();
+        t2.join();
+        t3.join();
     }
 }
