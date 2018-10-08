@@ -4,7 +4,7 @@ import org.junit.Test;
 
 public class DiningPhilosophersTest {
 
-    void startPhilosoper(DiningPhilosophers dp, int id) {
+    void startPhilosoper(DiningPhilosophers2 dp, int id) {
         try {
             dp.lifecycleOfPhilosopher(id);
         } catch (InterruptedException ie) {
@@ -16,7 +16,7 @@ public class DiningPhilosophersTest {
     // This is a perpetual test-case, because philosopher threads never die
     public void testDiningPhilosopher() throws InterruptedException {
 
-        final DiningPhilosophers dp = new DiningPhilosophers();
+        final DiningPhilosophers2 dp = new DiningPhilosophers2();
 
         Thread p1 = new Thread(new Runnable() {
 
