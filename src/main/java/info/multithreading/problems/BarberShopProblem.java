@@ -1,51 +1,53 @@
 package info.multithreading.problems;
 
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class BarberShopProblem {
 
-    final int CHAIRS = 3;
-    Semaphore waitForCustomerToEnter = new Semaphore(0);
-    Semaphore waitForBarberToGetReady = new Semaphore(0);
-    Semaphore waitForCustomerToLeave = new Semaphore(0);
-    Semaphore waitForBarberToCutHair = new Semaphore(0);
-    int waitingCustomers = 0;
-    ReentrantLock lock = new ReentrantLock();
-    int hairCutsGiven = 0;
+    private final int CHAIRS = 3;
+    private int waitingCustomers = 0;
+    private ReentrantLock lock = new ReentrantLock();
+    private Condition barberBusy = lock.newCondition();
+    private Condition noCustomers = lock.newCondition();
+    private String currentCustomerId = null;
 
-    void barber() throws InterruptedException {
-
-        while (true) {
-            waitForCustomerToEnter.acquire();
-            waitForBarberToGetReady.release();
-            hairCutsGiven++;
-            System.out.println("Barber cutting hair..." + hairCutsGiven);
-            Thread.sleep(50);
-            waitForBarberToCutHair.release();
-            waitForCustomerToLeave.acquire();
+    void customerWalksIn() throws InterruptedException {
+        String customerId = Thread.currentThread().getName();
+        lock.lock();
+        try {
+            if (waitingCustomers == CHAIRS) {
+                System.out.println(
+                        String.format("Barber shop full, customer %s leaving", customerId));
+                System.out.flush();
+                return;
+            }
+            waitingCustomers++;
+            while (currentCustomerId != null) {
+                barberBusy.await();
+            }
+            currentCustomerId = customerId;
+            noCustomers.signal();
+        } finally {
+            lock.unlock();
         }
     }
 
-    void customerWalksIn() throws InterruptedException {
-
-        lock.lock();
-        if (waitingCustomers == CHAIRS) {
-            System.out.println("Customer walks out, all waiting waitForCustomerToEnter occupied");
-            lock.unlock();
-            return;
+    void barber() throws InterruptedException {
+        while (true) {
+            lock.lock();
+            try {
+                while (currentCustomerId == null) {
+                    noCustomers.await();
+                }
+                waitingCustomers--;
+                System.out.println(String.format("Cutting customer %s", currentCustomerId));
+                Thread.sleep(1000);
+                currentCustomerId = null;
+                barberBusy.signal();
+            } finally {
+                lock.unlock();
+            }
         }
-        waitingCustomers++;
-        lock.unlock();
-
-        waitForCustomerToEnter.release();
-        waitForBarberToGetReady.acquire();
-
-        lock.lock();
-        waitingCustomers--;
-        lock.unlock();
-
-        waitForBarberToCutHair.acquire();
-        waitForCustomerToLeave.release();
     }
 }
